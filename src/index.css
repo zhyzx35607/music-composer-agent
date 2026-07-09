@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Righteous&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1E1B4B;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #4338CA;
+  --color-accent: #22C55E;
+  --color-background: #0F0F23;
+  --color-foreground: #F8FAFC;
+  --color-muted: #27273B;
+  --color-border: #312E81;
+  --color-destructive: #EF4444;
+  --color-ring: #1E1B4B;
+
+  --font-heading: 'Righteous', cursive;
+  --font-body: 'Poppins', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
