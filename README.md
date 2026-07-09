@@ -11,10 +11,6 @@
 - `frontend-plan.md` - 前端实现计划
 - `music_agent_division_plan(1).md` - 项目分工计划
 
-## 开发人员
-
-- zhyzx35607 (项目负责人)
-
 ## 许可证
 
 MIT
