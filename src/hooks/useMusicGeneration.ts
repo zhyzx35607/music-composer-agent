@@ -109,17 +109,25 @@ export function useMusicGeneration() {
         plan: result.plan
       }
       setHistory(prev => [historyItem, ...prev])
+      return result
     } catch (error) {
       console.error('Generation failed:', error)
+      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
+  const resetCurrentVersion = () => {
+    setCurrentVersion(null)
+  }
+
   return {
     isLoading,
     currentVersion,
+    setCurrentVersion,
     history,
-    generate
+    generate,
+    resetCurrentVersion
   }
 }
