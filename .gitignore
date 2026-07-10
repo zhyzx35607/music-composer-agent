@@ -1,24 +1,24 @@
-# IntelliJ IDEA
-.idea/
-*.iml
-*.ipr
-*.iws
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# VS Code
-.vscode/
+node_modules
+dist
+dist-ssr
+*.local
 
-# OS files
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
-
-# Claude Code (local config)
-.claude/
-
-# Development plan documents (keep locally, don't commit)
-frontend-plan.md
-music_agent_division_plan*.md
-
-# Output files (to be generated)
-outputs/
-*.mid
-*.wav
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
