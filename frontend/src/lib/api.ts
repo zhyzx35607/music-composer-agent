@@ -25,7 +25,7 @@ if (import.meta.env.DEV) {
   );
 }
 
-// 响应拦截器 - 自动提取 data 字段
+// 响应拦截器 - 提取后端 ApiResponse 中的 data 字段
 // 后端响应格式: { code, message, data }
 // 拦截器提取 data 字段并返回，调用方直接得到类型化的业务数据
 apiClient.interceptors.response.use(
@@ -33,11 +33,11 @@ apiClient.interceptors.response.use(
     if (import.meta.env.DEV) {
       console.log(`[API Response] ${response.status} ${response.config.url}`, response.data);
     }
-    // 如果响应数据包含 data 字段，则提取它
+    // 如果响应数据包含 data 字段，则提取它（剥掉 ApiResponse 外层）
     if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      return response.data;
+      return response.data.data;
     }
-    return response;
+    return response.data;
   },
   function (error) {
     console.error('[API Response Error]', error);
@@ -62,8 +62,7 @@ export const api = {
    */
   generate: async (payload: GenerateRequest): Promise<GenerateResponse> => {
     const response = await apiClient.post<GenerateResponse>('/api/generate', payload);
-    // response.data 已经是 GenerateResponse 类型（被拦截器处理过）
-    return response.data as GenerateResponse;
+    return response;
   },
 
   /**
@@ -71,7 +70,7 @@ export const api = {
    */
   revise: async (payload: ReviseRequest): Promise<GenerateResponse> => {
     const response = await apiClient.post<GenerateResponse>('/api/revise', payload);
-    return response.data as GenerateResponse;
+    return response;
   },
 
   /**
@@ -85,7 +84,7 @@ export const api = {
     size: number;
   }> => {
     const response = await apiClient.get<{ items: HistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/versions', { params: { page, size } });
-    return response.data as { items: HistoryItem[]; total: number; totalPages: number; page: number; size: number };
+    return response;
   },
 
   /**
@@ -93,7 +92,7 @@ export const api = {
    */
   getVersion: async (versionId: string): Promise<HistoryItem> => {
     const response = await apiClient.get<HistoryItem>(`/api/version/${versionId}`);
-    return response.data as HistoryItem;
+    return response;
   },
 
   /**
@@ -106,7 +105,7 @@ export const api = {
     healthy: boolean;
   }> => {
     const response = await apiClient.get<{ service: string; database: string; totalVersions: number; healthy: boolean }>('/api/health');
-    return response.data as { service: string; database: string; totalVersions: number; healthy: boolean };
+    return response;
   },
 
   /**
@@ -114,7 +113,7 @@ export const api = {
    */
   checkCompliance: async (payload: ComplianceCheckRequest): Promise<ComplianceCheckResult> => {
     const response = await apiClient.post<ComplianceCheckResult>('/api/compliance/check', payload);
-    return response.data as ComplianceCheckResult;
+    return response;
   },
 
   /**
@@ -122,7 +121,7 @@ export const api = {
    */
   getComplianceHistory: async (): Promise<ComplianceHistoryItem[]> => {
     const response = await apiClient.get<{ items: ComplianceHistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/compliance/history');
-    return (response.data as { items: ComplianceHistoryItem[] }).items;
+    return response.items;
   },
 
   /**
@@ -130,7 +129,7 @@ export const api = {
    */
   registerCopyright: async (payload: CopyrightRegisterRequest): Promise<CopyrightRecord> => {
     const response = await apiClient.post<CopyrightRecord>('/api/copyright/register', payload);
-    return response.data as CopyrightRecord;
+    return response;
   },
 
   /**
@@ -138,7 +137,7 @@ export const api = {
    */
   getCopyrightRecords: async (): Promise<CopyrightRecord[]> => {
     const response = await apiClient.get<{ items: CopyrightRecord[]; total: number; totalPages: number; page: number; size: number }>('/api/copyright/records');
-    return (response.data as { items: CopyrightRecord[] }).items;
+    return response.items;
   },
 
   /**
@@ -146,7 +145,7 @@ export const api = {
    */
   getCopyrightRecord: async (recordId: string): Promise<CopyrightRecord> => {
     const response = await apiClient.get<CopyrightRecord>(`/api/copyright/record/${recordId}`);
-    return response.data as CopyrightRecord;
+    return response;
   },
 };
 

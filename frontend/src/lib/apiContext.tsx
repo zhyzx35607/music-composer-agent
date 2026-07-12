@@ -71,6 +71,7 @@ export function APIProvider({ children }: APIProviderProps) {
         if (data.items.length > 0) {
           setHistory(data.items);
           const latest = data.items[0];
+          // 优先使用列表数据，如果列表数据不完整则通过详情 API 获取
           if (latest.caption && latest.midi_url && latest.audio_url && latest.plan) {
             setCurrentVersion({
               version_id: latest.version_id,
@@ -79,8 +80,23 @@ export function APIProvider({ children }: APIProviderProps) {
               audio_url: latest.audio_url,
               plan: latest.plan,
             });
+            setError(null);
+          } else {
+            // 列表数据不完整，尝试获取完整详情
+            api.getVersion(latest.version_id).then(fullVersion => {
+              if (fullVersion.caption && fullVersion.midi_url && fullVersion.audio_url && fullVersion.plan) {
+                setCurrentVersion({
+                  version_id: fullVersion.version_id,
+                  caption: fullVersion.caption,
+                  midi_url: fullVersion.midi_url,
+                  audio_url: fullVersion.audio_url,
+                  plan: fullVersion.plan,
+                });
+              }
+            }).catch(() => {
+              // 静默失败，用户生成音乐后自然能看到结果
+            });
           }
-          setError(null);
         }
         hasLoadedRef.current = true;
       } catch {

@@ -206,10 +206,18 @@ public class MusicController {
         summary.put("tempo", v.getTempo());
         summary.put("created_at", v.getCreatedAt());
         summary.put("mock", v.isMock());
+        summary.put("midi_url", "/outputs/" + v.getVersionId() + ".mid");
+        summary.put("audio_url", "/outputs/" + v.getVersionId() + ".wav");
         if (v.getCaption() != null && v.getCaption().length() > 100) {
             summary.put("caption_preview", v.getCaption().substring(0, 100) + "...");
         } else {
             summary.put("caption_preview", v.getCaption());
+        }
+        summary.put("caption", v.getCaption());
+        try {
+            summary.put("plan", objectMapper.readValue(v.getPlan(), Map.class));
+        } catch (JsonProcessingException e) {
+            summary.put("plan", v.getPlan());
         }
         return summary;
     }
