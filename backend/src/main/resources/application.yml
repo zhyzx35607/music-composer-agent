@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: music-platform
+
+  # SQLite 数据源配置
+  datasource:
+    url: jdbc:sqlite:music_platform.db
+    driver-class-name: org.sqlite.JDBC
+
+  # JPA 配置
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update   # 自动建表，开发阶段方便
+    show-sql: false       # 调试时可改为 true
+
+  # 静态文件访问（由 WebConfig.java 管理映射，此处仅保留 classpath 默认路径）
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+  # Jackson JSON 配置
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# 输出文件目录（智能体管线输出到此目录）
+music-platform:
+  output-dir: ../agent/gpt_music_pipeline/outputs
+
+  # 音乐生成管线配置
+  pipeline:
+    python: C:/Python314/python.exe
+    script-dir: ../agent/gpt_music_pipeline
+    model: gpt-5.5
+    timeout: 240
+    fluidsynth-path:
+    soundfont-path:
+    # API Key & Base URL — 请通过环境变量或 .env 文件设置，不要在此提交真实凭据
+    # 环境变量: MUSIC_API_KEY / MUSIC_API_BASE_URL
+    api-key: sk-1f346f483c1de9d76578c42fd63504e2562fda9292586919464fbcea37cc62fa
+    api-base-url: http://172.93.218.157:8080/v1
