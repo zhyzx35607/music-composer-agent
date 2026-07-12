@@ -1,0 +1,56 @@
+# =============================================================
+# 音乐创作智能体平台 — 后端配置文件模板
+# 复制此文件为 application.yml 并填入真实值
+# cp application.example.yml application.yml
+# =============================================================
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: music-platform
+
+  # SQLite 数据源配置
+  datasource:
+    url: jdbc:sqlite:music_platform.db
+    driver-class-name: org.sqlite.JDBC
+
+  # JPA 配置
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# 输出文件目录（智能体管线输出到此目录）
+music-platform:
+  output-dir: ../agent/gpt_music_pipeline/outputs
+
+  pipeline:
+    python: C:/Python314/python.exe
+    script-dir: ../agent/gpt_music_pipeline
+    model: gpt-5.5
+    timeout: 240
+    fluidsynth-path:
+    soundfont-path:
+    # API Key & Base URL — 通过环境变量或 .env 文件设置
+    # 环境变量: MUSIC_API_KEY / MUSIC_API_BASE_URL
+    api-key:
+    api-base-url:

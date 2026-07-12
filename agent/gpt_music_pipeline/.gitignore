@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+outputs/*
+!outputs/.gitkeep
+examples/generated_*
+examples/*_dry.wav
+examples/*_trimmed.wav
