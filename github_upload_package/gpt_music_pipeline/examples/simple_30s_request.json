@@ -1,0 +1,9 @@
+{
+  "user_request": "生成一段30秒左右的纯音乐，风格紧张一点，适合游戏Boss战。",
+  "ui_parameters": {
+    "duration_seconds": 30,
+    "pure_instrumental": true,
+    "style": "game battle",
+    "mood": "tense"
+  }
+}
