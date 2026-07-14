@@ -1,3 +1,9 @@
+# =============================================================
+# 音乐创作智能体平台 — 后端配置文件模板
+# 复制此文件为 application.yml 并填入真实值
+# cp application.example.yml application.yml
+# =============================================================
+
 server:
   port: 8080
 
@@ -14,24 +20,16 @@ spring:
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
     hibernate:
-      ddl-auto: update   # 自动建表，开发阶段方便
-    show-sql: false       # 调试时可改为 true
+      ddl-auto: update
+    show-sql: false
 
-  # 静态文件访问（由 WebConfig.java 管理映射，此处仅保留 classpath 默认路径）
   web:
     resources:
       static-locations: classpath:/static/
 
-  # Jackson JSON 配置
   jackson:
     serialization:
       write-dates-as-timestamps: false
-
-  # 文件上传大小限制
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
 
 # SpringDoc OpenAPI 配置
 springdoc:
@@ -45,21 +43,14 @@ springdoc:
 music-platform:
   output-dir: ../agent/gpt_music_pipeline/outputs
 
-  # 音乐生成管线配置
   pipeline:
     python: C:/Python314/python.exe
     script-dir: ../agent/gpt_music_pipeline
-    model: ${MUSIC_MODEL:gpt-5.5}
+    model: gpt-5.5
     timeout: 240
     fluidsynth-path:
     soundfont-path:
-    # API Key & Base URL — 请通过环境变量或 .env 文件设置，不要在此提交真实凭据
+    # API Key & Base URL — 通过环境变量或 .env 文件设置
     # 环境变量: MUSIC_API_KEY / MUSIC_API_BASE_URL
-    api-key: ${MUSIC_API_KEY:}
-    api-base-url: ${MUSIC_API_BASE_URL:http://172.93.218.157:8080/v1}
-
-  # 文件上传配置
-  upload:
-    max-size: 10485760  # 10MB
-    allowed-extensions: txt,docx,xlsx,musicxml,xml,mxl,mid,midi
-    upload-dir: ../agent/gpt_music_pipeline/outputs/uploads
+    api-key:
+    api-base-url:

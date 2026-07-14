@@ -21,8 +21,26 @@ public interface MusicVersionRepository extends JpaRepository<MusicVersion, Stri
     /** 按创建时间降序分页获取版本 */
     Page<MusicVersion> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-    /** 获取最大版本序号（用于生成下一个版本 ID），无版本时返回 0 */
+    /** 获取全局最大版本序号（用于生成下一个版本 ID），无版本时返回 0 */
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(v.versionId, 2) AS integer)), 0) FROM MusicVersion v")
-    int findMaxVersionNumber();
+    int findMaxGlobalVersionNumber();
+
+    // ---- Track 相关查询 ----
+
+    /** Track 是否存在 */
+    boolean existsByTrackId(String trackId);
+
+    /** Track 内最大版本号 */
+    @Query("SELECT COALESCE(MAX(v.versionNumber), 0) FROM MusicVersion v WHERE v.trackId = :trackId")
+    int findMaxVersionNumberInTrack(String trackId);
+
+    /** 所有 Track 摘要（每个 track 的最新版本），排除旧数据中 track_id 为 null 的记录 */
+    @Query("SELECT v FROM MusicVersion v WHERE v.trackId IS NOT NULL AND (v.trackId, v.versionNumber) IN "
+         + "(SELECT v2.trackId, MAX(v2.versionNumber) FROM MusicVersion v2 WHERE v2.trackId IS NOT NULL "
+         + "GROUP BY v2.trackId) ORDER BY v.createdAt DESC")
+    List<MusicVersion> findLatestPerTrack();
+
+    /** 某 Track 的所有版本（按版本号倒序） */
+    List<MusicVersion> findByTrackIdOrderByVersionNumberDesc(String trackId);
 
 }
