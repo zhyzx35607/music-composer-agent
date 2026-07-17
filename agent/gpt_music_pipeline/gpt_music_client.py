@@ -22,6 +22,7 @@ def generate_music_json(
     base_url: str | None = None,
     api_key: str | None = None,
     timeout_seconds: int = 90,
+    system_prompt: str | None = None,
 ) -> dict[str, Any]:
     """Call a Chat Completions compatible API and return parsed JSON content."""
     key = api_key or os.environ.get("MUSIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
@@ -36,7 +37,7 @@ def generate_music_json(
         "messages": [
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": system_prompt or SYSTEM_PROMPT,
             },
             {"role": "user", "content": prompt},
         ],

@@ -20,8 +20,10 @@ Step 6: Render MIDI to WAV with FluidSynth.
 
 ## Files
 
+- `requirements.txt`: Python dependencies for GPT calls, score parsing, and MIDI helpers.
 - `prompts/music_json_prompt_template.md`: prompt template for asking GPT to generate structured music data.
 - `schemas/music_json_schema.json`: JSON Schema used to validate GPT output before converting it to MIDI.
+- `schemas/revision_plan_schema.json`: JSON Schema for targeted feedback-edit plans.
 - `examples/api_smoke_5s_expected_shape.json`: local expected-shape sample for smoke testing.
 - `outputs/`: the only runtime output folder for generated JSON, MIDI, and WAV files.
 - `gpt_music_client.py`: Chat Completions compatible API client.
@@ -29,6 +31,7 @@ Step 6: Render MIDI to WAV with FluidSynth.
 - `validate_music_json.py`: local validator for generated music JSON.
 - `music_json_to_midi.py`: converts validated `music_json` into a standard MIDI file.
 - `render_wav.py`: renders MIDI into WAV with FluidSynth and can trim the result to a target duration.
+- `revision_plan.py`: validates and applies structured edit operations to a parent `music_json`.
 - `run_music_pipeline.py`: one-command pipeline entry for backend integration.
 
 ## Pipeline
@@ -44,6 +47,23 @@ frontend request
 -> frontend audio playback
 ```
 
+Feedback revision uses a different path:
+
+```text
+frontend feedback
+-> load parent music_json
+-> GPT returns revision_plan only
+-> Python validates and applies targeted operations
+-> revised music_json
+-> MIDI -> WAV
+```
+
+GPT does not rewrite the complete score during feedback revision. The generated
+`{version}.revision_plan.json` identifies the beat range, tracks, preserved
+properties, maximum note-change ratio, metadata updates, and concrete operations.
+Python rejects plans that reference missing notes, exceed their declared scope,
+change protected instruments, or modify too many notes.
+
 ## Why JSON
 
 GPT is the generator, but the program still needs a stable contract.
@@ -52,6 +72,12 @@ The JSON format tells GPT exactly what to return and tells the backend exactly w
 Without a fixed JSON format, GPT may return prose, incomplete music descriptions, invalid notes, or data that cannot be converted into MIDI.
 
 ## Generate Music JSON
+
+Install Python dependencies first:
+
+```powershell
+F:\music\.venv\Scripts\python.exe -m pip install -r .\requirements.txt
+```
 
 Set the API key as an environment variable. Do not write the key into source code.
 

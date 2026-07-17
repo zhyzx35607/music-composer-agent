@@ -1,24 +1,46 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
+# Secrets and local environment
+.env
+.env.*
+!.env.example
 *.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Backend
+backend/target/
+backend/*.db
+backend/logs/
+backend/outputs/
+
+# Generated music and uploads
+agent/gpt_music_pipeline/outputs/*
+!agent/gpt_music_pipeline/outputs/.gitkeep
+*.wav
+*.mid
+*.midi
+
+# SoundFonts are intentionally excluded from GitHub
+agent/soundfonts/*.sf2
+agent/soundfonts/*.sf3
+
+# Personal documents and IDE files
+docs/
+*.doc
+*.docx
+*.pdf
+.idea/
+.vscode/
+.claude/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
+

@@ -11,10 +11,26 @@ import java.time.LocalDateTime;
 @Table(name = "music_versions")
 public class MusicVersion {
 
-    /** 版本ID，例如 v1, v2, v3 */
+    /** 版本ID，例如 v1, v2, v3（全局自增序号） */
     @Id
     @Column(name = "version_id", length = 32)
     private String versionId;
+
+    /** Track ID — 一首音乐的标识。同一 Track 下的所有版本共享此 ID */
+    @Column(name = "track_id", length = 36)
+    private String trackId;
+
+    /** 音乐名称，用户手动输入，如"毕业季的歌" */
+    @Column(name = "track_name", length = 128)
+    private String trackName;
+
+    /** Track 内的版本序号，从 1 开始 */
+    @Column(name = "version_number")
+    private Integer versionNumber;
+
+    /** 版本描述，用户可手动输入（类似 Git commit message）；不填则后端自动生成 */
+    @Column(name = "version_label", length = 256)
+    private String versionLabel;
 
     /** 父版本ID — 如果是全新生成则为 null，如果是反馈修改则指向上一版 */
     @Column(name = "parent_version_id", length = 32)
@@ -64,6 +80,10 @@ public class MusicVersion {
     @Column(name = "change_reason", columnDefinition = "TEXT")
     private String changeReason;
 
+    /** 参数差异对比（JSON 对象），回炉时生成，首次为 null */
+    @Column(name = "parameter_diff", columnDefinition = "TEXT")
+    private String parameterDiff;
+
     /** 创建时间 */
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -95,6 +115,18 @@ public class MusicVersion {
 
     public String getVersionId() { return versionId; }
     public void setVersionId(String versionId) { this.versionId = versionId; }
+
+    public String getTrackId() { return trackId; }
+    public void setTrackId(String trackId) { this.trackId = trackId; }
+
+    public String getTrackName() { return trackName; }
+    public void setTrackName(String trackName) { this.trackName = trackName; }
+
+    public Integer getVersionNumber() { return versionNumber; }
+    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
+
+    public String getVersionLabel() { return versionLabel; }
+    public void setVersionLabel(String versionLabel) { this.versionLabel = versionLabel; }
 
     public String getParentVersionId() { return parentVersionId; }
     public void setParentVersionId(String parentVersionId) { this.parentVersionId = parentVersionId; }
@@ -131,6 +163,9 @@ public class MusicVersion {
 
     public String getChangeReason() { return changeReason; }
     public void setChangeReason(String changeReason) { this.changeReason = changeReason; }
+
+    public String getParameterDiff() { return parameterDiff; }
+    public void setParameterDiff(String parameterDiff) { this.parameterDiff = parameterDiff; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

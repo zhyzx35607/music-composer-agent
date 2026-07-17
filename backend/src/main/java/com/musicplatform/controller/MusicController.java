@@ -85,7 +85,9 @@ public class MusicController {
         String instrumentsJson = objectMapper.writeValueAsString(instruments);
 
         MusicVersion version = musicService.generate(
-                request.getUserPrompt(), style, mood, tempo, instrumentsJson);
+                request.getUserPrompt(), style, mood, tempo, instrumentsJson,
+                request.getTrackName(), request.getTrackId(), request.getVersionLabel(),
+                request.getDurationSeconds(), request.getReferenceFileIds());
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("生成完成 | version_id={} | 耗时={}ms", version.getVersionId(), elapsed);
@@ -118,7 +120,8 @@ public class MusicController {
 
         long start = System.currentTimeMillis();
 
-        MusicVersion version = musicService.revise(request.getVersionId(), request.getFeedback());
+        MusicVersion version = musicService.revise(request.getVersionId(),
+                request.getFeedback(), request.getVersionLabel(), request.getReferenceFileIds());
 
         long elapsed = System.currentTimeMillis() - start;
         log.info("修改完成 | version_id={} | parent={} | 耗时={}ms",
@@ -176,29 +179,126 @@ public class MusicController {
                 .orElseThrow(() -> new NoSuchElementException("版本不存在: " + versionId));
     }
 
+    /**
+     * GET /api/tracks — 获取所有 Track 列表（每个 Track 展示最新版本）。
+     */
+    @Operation(summary = "获取 Track 列表", description = "获取所有音乐（Track）列表，每个 Track 展示最新版本摘要。")
+    @GetMapping("/tracks")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTracks() {
+        List<MusicVersion> latestVersions = musicService.getLatestPerTrack();
+        List<Map<String, Object>> items = latestVersions.stream()
+                .map(v -> {
+                    Map<String, Object> track = new LinkedHashMap<>();
+                    track.put("track_id", v.getTrackId());
+                    track.put("track_name", v.getTrackName());
+                    track.put("version_number", v.getVersionNumber()); // 当前最新版本号 ≈ 总版本数
+                    track.put("created_at", v.getCreatedAt());
+                    track.put("updated_at", v.getCreatedAt());
+                    track.put("latest_version", buildVersionSummary(v));
+                    return track;
+                })
+                .toList();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("items", items);
+        result.put("total", items.size());
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * GET /api/track/{track_id} — 获取某 Track 的完整版本历史。
+     */
+    @Operation(summary = "获取 Track 详情", description = "根据 track_id 获取该音乐的所有历史版本。")
+    @GetMapping("/track/{track_id}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTrack(
+            @Parameter(description = "Track ID", example = "a1b2c3d4-e5f6-...")
+            @PathVariable("track_id") String trackId) {
+
+        List<MusicVersion> versions = musicService.getTrackVersions(trackId);
+        if (versions.isEmpty()) {
+            throw new NoSuchElementException("Track 不存在: " + trackId);
+        }
+        MusicVersion first = versions.get(0); // 最新版本
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("track_id", trackId);
+        result.put("track_name", first.getTrackName());
+        result.put("total_versions", versions.size());
+        result.put("versions", versions.stream()
+                .map(v -> {
+                    Map<String, Object> detail = new LinkedHashMap<>();
+                    detail.put("version_id", v.getVersionId());
+                    detail.put("version_number", v.getVersionNumber());
+                    detail.put("version_label", v.getVersionLabel());
+                    detail.put("parent_version_id", v.getParentVersionId());
+                    detail.put("user_prompt", v.getUserPrompt());
+                    detail.put("style", v.getStyle());
+                    detail.put("mood", v.getMood());
+                    detail.put("tempo", v.getTempo());
+                    try {
+                        detail.put("instruments", objectMapper.readValue(v.getInstruments(), List.class));
+                    } catch (JsonProcessingException e) {
+                        detail.put("instruments", v.getInstruments());
+                    }
+                    detail.put("feedback", v.getFeedback());
+                    detail.put("caption", v.getCaption());
+                    detail.put("midi_url", "/outputs/" + v.getVersionId() + ".mid");
+                    detail.put("audio_url", "/outputs/" + v.getVersionId() + ".wav");
+                    detail.put("change_reason", v.getChangeReason());
+                    if (v.getParameterDiff() != null && !v.getParameterDiff().isEmpty()) {
+                        try {
+                            detail.put("parameter_diff", objectMapper.readValue(v.getParameterDiff(), Map.class));
+                        } catch (JsonProcessingException e) {
+                            detail.put("parameter_diff", null);
+                        }
+                    } else {
+                        detail.put("parameter_diff", null);
+                    }
+                    detail.put("created_at", v.getCreatedAt());
+                    detail.put("mock", v.isMock());
+                    return detail;
+                })
+                .toList());
+
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
     // ===================== 响应构建辅助方法 =====================
 
     private Map<String, Object> buildGenerateResponse(MusicVersion v) throws JsonProcessingException {
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("version_id", v.getVersionId());
+        resp.put("track_id", v.getTrackId());
+        resp.put("track_name", v.getTrackName());
+        resp.put("version_number", v.getVersionNumber());
+        resp.put("version_label", v.getVersionLabel());
         resp.put("caption", v.getCaption());
         resp.put("midi_url", "/outputs/" + v.getVersionId() + ".mid");
         resp.put("audio_url", "/outputs/" + v.getVersionId() + ".wav");
         resp.put("plan", objectMapper.readValue(v.getPlan(), Map.class));
         resp.put("mock", v.isMock());
+        resp.put("parent_version_id", v.getParentVersionId());
+        resp.put("change_reason", v.getChangeReason());
+        if (v.getParameterDiff() != null && !v.getParameterDiff().isEmpty()) {
+            resp.put("parameter_diff", objectMapper.readValue(v.getParameterDiff(), Map.class));
+        } else {
+            resp.put("parameter_diff", null);
+        }
         return resp;
     }
 
     private Map<String, Object> buildReviseResponse(MusicVersion v) throws JsonProcessingException {
-        Map<String, Object> resp = buildGenerateResponse(v);
-        resp.put("parent_version_id", v.getParentVersionId());
-        resp.put("change_reason", v.getChangeReason());
-        return resp;
+        // 与 buildGenerateResponse 完全一致（已包含所有字段）
+        return buildGenerateResponse(v);
     }
 
     private Map<String, Object> buildVersionSummary(MusicVersion v) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("version_id", v.getVersionId());
+        summary.put("track_id", v.getTrackId());
+        summary.put("track_name", v.getTrackName());
+        summary.put("version_number", v.getVersionNumber());
+        summary.put("version_label", v.getVersionLabel());
         summary.put("parent_version_id", v.getParentVersionId());
         summary.put("user_prompt", v.getUserPrompt());
         summary.put("style", v.getStyle());
@@ -225,6 +325,10 @@ public class MusicController {
     private Map<String, Object> buildVersionDetail(MusicVersion v) {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("version_id", v.getVersionId());
+        detail.put("track_id", v.getTrackId());
+        detail.put("track_name", v.getTrackName());
+        detail.put("version_number", v.getVersionNumber());
+        detail.put("version_label", v.getVersionLabel());
         detail.put("parent_version_id", v.getParentVersionId());
         detail.put("user_prompt", v.getUserPrompt());
         detail.put("style", v.getStyle());
@@ -240,6 +344,15 @@ public class MusicController {
         detail.put("midi_url", "/outputs/" + v.getVersionId() + ".mid");
         detail.put("audio_url", "/outputs/" + v.getVersionId() + ".wav");
         detail.put("change_reason", v.getChangeReason());
+        if (v.getParameterDiff() != null && !v.getParameterDiff().isEmpty()) {
+            try {
+                detail.put("parameter_diff", objectMapper.readValue(v.getParameterDiff(), Map.class));
+            } catch (JsonProcessingException e) {
+                detail.put("parameter_diff", null);
+            }
+        } else {
+            detail.put("parameter_diff", null);
+        }
         detail.put("created_at", v.getCreatedAt());
         detail.put("mock", v.isMock());
         try {

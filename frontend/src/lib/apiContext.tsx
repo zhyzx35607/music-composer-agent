@@ -14,8 +14,9 @@ interface APIContextType {
     mood: string;
     tempo: string;
     instruments: string[];
+    referenceFileIds?: number[];
   }) => Promise<GenerateResponse>;
-  revise: (versionId: string, feedback: string) => Promise<GenerateResponse>;
+  revise: (versionId: string, feedback: string, referenceFileIds?: number[]) => Promise<GenerateResponse>;
   loadVersion: (versionId: string) => Promise<GenerateResponse>;
   resetCurrentVersion: () => void;
   setCurrentVersion: (version: GenerateResponse | null) => void;
@@ -44,12 +45,14 @@ export function APIProvider({ children }: APIProviderProps) {
     mood: string;
     tempo: string;
     instruments: string[];
+    referenceFileIds?: number[];
   }>({
     user_prompt: '',
     style: '',
     mood: '',
     tempo: '',
     instruments: [],
+    referenceFileIds: [],
   });
 
   // 初始化：加载历史版本 - 只触发一次
@@ -67,18 +70,20 @@ export function APIProvider({ children }: APIProviderProps) {
 
     const loadHistory = async () => {
       try {
-        const data = await api.getVersions(0, 10);
+        const data = await api.getVersions(0, 100);
         if (data.items.length > 0) {
           setHistory(data.items);
-          const latest = data.items[0];
+          const latest = data.items.find(item => !item.mock) || data.items[0];
           // 优先使用列表数据，如果列表数据不完整则通过详情 API 获取
           if (latest.caption && latest.midi_url && latest.audio_url && latest.plan) {
             setCurrentVersion({
               version_id: latest.version_id,
+              track_id: latest.track_id,
               caption: latest.caption,
               midi_url: latest.midi_url,
               audio_url: latest.audio_url,
               plan: latest.plan,
+              mock: latest.mock,
             });
             setError(null);
           } else {
@@ -87,10 +92,12 @@ export function APIProvider({ children }: APIProviderProps) {
               if (fullVersion.caption && fullVersion.midi_url && fullVersion.audio_url && fullVersion.plan) {
                 setCurrentVersion({
                   version_id: fullVersion.version_id,
+                  track_id: fullVersion.track_id,
                   caption: fullVersion.caption,
                   midi_url: fullVersion.midi_url,
                   audio_url: fullVersion.audio_url,
                   plan: fullVersion.plan,
+                  mock: fullVersion.mock,
                 });
               }
             }).catch(() => {
@@ -115,6 +122,7 @@ export function APIProvider({ children }: APIProviderProps) {
     mood: string;
     tempo: string;
     instruments: string[];
+    referenceFileIds?: number[];
   }): Promise<GenerateResponse> => {
     // 保存请求参数，供 revise 构建历史记录时使用
     lastGenerateRequestRef.current = { ...request };
@@ -126,6 +134,7 @@ export function APIProvider({ children }: APIProviderProps) {
         mood: request.mood,
         tempo: request.tempo,
         instruments: request.instruments,
+        reference_file_ids: request.referenceFileIds,
       });
 
       setCurrentVersion(result);
@@ -147,6 +156,7 @@ export function APIProvider({ children }: APIProviderProps) {
         midi_url: result.midi_url,
         audio_url: result.audio_url,
         plan: result.plan,
+        mock: result.mock,
       };
       setHistory(prev => [historyItem, ...prev]);
       setError(null);
@@ -159,12 +169,13 @@ export function APIProvider({ children }: APIProviderProps) {
     }
   };
 
-  const revise = async (versionId: string, feedback: string) => {
+  const revise = async (versionId: string, feedback: string, referenceFileIds?: number[]) => {
     setIsLoading(true);
     try {
       const result = await api.revise({
         version_id: versionId,
         feedback: feedback,
+        reference_file_ids: referenceFileIds,
       });
 
       setCurrentVersion(result);
@@ -185,6 +196,7 @@ export function APIProvider({ children }: APIProviderProps) {
         midi_url: result.midi_url,
         audio_url: result.audio_url,
         plan: result.plan,
+        mock: result.mock,
       };
       setHistory(prev => [historyItem, ...prev]);
       setError(null);
@@ -209,10 +221,12 @@ export function APIProvider({ children }: APIProviderProps) {
       if (version.caption && version.midi_url && version.audio_url && version.plan) {
         const loadedVersion: GenerateResponse = {
           version_id: version.version_id,
+          track_id: version.track_id,
           caption: version.caption,
           midi_url: version.midi_url,
           audio_url: version.audio_url,
           plan: version.plan,
+          mock: version.mock,
         };
         setCurrentVersion(loadedVersion);
         setError(null);

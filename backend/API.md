@@ -46,16 +46,22 @@ http://localhost:8080/outputs/v1.wav
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST` | `/api/generate` | 首次生成音乐 |
-| `POST` | `/api/revise` | 反馈修改 |
-| `GET` | `/api/versions` | 分页获取版本列表 |
+| `POST` | `/api/generate` | 首次生成音乐（Track 模型） |
+| `POST` | `/api/revise` | 反馈修改（回炉，含参数 diff） |
+| `GET` | `/api/tracks` | 获取 Track 列表（按音乐分组） |
+| `GET` | `/api/track/{track_id}` | 获取某 Track 的完整版本历史 |
+| `GET` | `/api/versions` | 分页获取全局版本列表 |
 | `GET` | `/api/version/{id}` | 获取版本详情 |
 | `GET` | `/api/health` | 健康检查 |
+| `POST` | `/api/upload` | 上传参考文件（txt/docx/xlsx/musicxml/mxl） |
+| `GET` | `/api/uploads/version/{version_id}` | 查看某版本关联的参考文件 |
+| `DELETE` | `/api/uploads/{file_id}` | 删除指定文件 |
 | `POST` | `/api/compliance/check` | 合规检测 |
 | `GET` | `/api/compliance/history` | 检测历史 |
 | `POST` | `/api/copyright/register` | 版权存证 |
 | `GET` | `/api/copyright/records` | 存证记录列表 |
 | `GET` | `/api/copyright/record/{id}` | 存证记录详情 |
+| `GET` | `/api/copyright/evidence-package/{version_id}` | 版权存证统一证据包 |
 | `GET` | `/outputs/{filename}` | 静态文件访问（MIDI / WAV） |
 
 ---
@@ -64,13 +70,16 @@ http://localhost:8080/outputs/v1.wav
 
 ### 3.1 POST /api/generate — 首次生成音乐
 
-根据用户中文需求生成作曲方案和音频文件。
+根据用户中文需求和可选文件，生成作曲方案和音频文件。
 
 **Request**
 
 ```json
 {
   "user_prompt": "我想要一首毕业季的歌，抒情一点",
+  "track_name": "毕业季的歌",
+  "track_id": "a1b2c3d4-e5f6...",
+  "version_label": "抒情初版",
   "style": "pop ballad",
   "mood": "nostalgic",
   "tempo": "medium",
@@ -81,10 +90,15 @@ http://localhost:8080/outputs/v1.wav
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `user_prompt` | string | ✅ 必填 | — | 用户中文需求，最长 2000 字符 |
+| `track_name` | string | 建议填 | — | 音乐名称，如"毕业季的歌" |
+| `track_id` | string | 选填 | — | 已有 Track ID，传了则在对应 Track 下追加版本 |
+| `version_label` | string | 选填 | 自动生成 | 版本描述（类似 Git commit message） |
 | `style` | string | 选填 | `"pop"` | 音乐风格 |
 | `mood` | string | 选填 | `"calm"` | 情绪 |
 | `tempo` | string | 选填 | `"medium"` | 速度（slow / medium / fast） |
 | `instruments` | string[] | 选填 | `["piano"]` | 乐器列表 |
+
+> 如果上传了参考文件（`POST /api/upload`），后端会在生成时自动将文件内容注入 prompt。
 
 **Response** `201 Created`
 
@@ -93,45 +107,60 @@ http://localhost:8080/outputs/v1.wav
   "code": 201,
   "message": "created",
   "data": {
-    "version_id": "v1",
-    "caption": "A pop ballad instrumental piece with a nostalgic mood, medium tempo, featuring piano, strings.",
-    "midi_url": "/outputs/v1.mid",
-    "audio_url": "/outputs/v1.wav",
+    "version_id": "v7",
+    "track_id": "a1b2c3d4-e5f6-...",
+    "track_name": "毕业季的歌",
+    "version_number": 1,
+    "version_label": "初次创作·抒情告别曲",
+    "parent_version_id": null,
+    "caption": "A warm nostalgic pop ballad instrumental...",
+    "midi_url": "/outputs/v7.mid",
+    "audio_url": "/outputs/v7.wav",
     "plan": {
-      "theme": "a beautiful musical piece",
+      "theme": "graduation farewell",
       "style": "pop ballad",
-      "mood": ["nostalgic"],
-      "tempo": 88,
-      "key": "C major",
+      "mood": ["nostalgic", "warm"],
+      "tempo": 76,
+      "key": "A minor",
       "instruments": ["piano", "strings"],
       "structure": ["intro", "verse", "chorus", "outro"]
     },
-    "mock": false
+    "mock": false,
+    "change_reason": null,
+    "parameter_diff": null
   }
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `version_id` | string | 版本 ID，如 `v1`, `v2`, `v3` |
+| `version_id` | string | 全局自增版本 ID，如 `v1`, `v2`, `v3` |
+| `track_id` | string | Track 标识（UUID） |
+| `track_name` | string | 音乐名称 |
+| `version_number` | number | Track 内的版本序号，从 1 开始 |
+| `version_label` | string | 版本描述 |
+| `parent_version_id` | string\|null | 父版本 ID，首次生成为 null |
 | `caption` | string | 英文描述（供 Text2MIDI 使用） |
 | `midi_url` | string | MIDI 文件相对路径 |
 | `audio_url` | string | WAV 文件相对路径 |
 | `plan` | object | 结构化作曲方案 |
-| `mock` | boolean | 是否 Mock 降级版本（管线不可用时的占位音频） |
+| `mock` | boolean | 是否 Mock 降级版本 |
+| `change_reason` | string\|null | 首次生成为 null，回炉时有值 |
+| `parameter_diff` | object\|null | 首次生成为 null，回炉时有值 |
 
 ---
 
-### 3.2 POST /api/revise — 反馈修改
+### 3.2 POST /api/revise — 反馈修改（回炉）
 
-基于已有版本和用户反馈，生成新的修改版本。
+基于已有版本和用户反馈，AI 做对比式修改，生成新版本。
 
 **Request**
 
 ```json
 {
   "version_id": "v1",
-  "feedback": "这版太悲伤了，想要更有希望一点，加一点钢琴"
+  "feedback": "这版太悲伤了，想要更有希望一点，加一点钢琴",
+  "version_label": "希望版"
 }
 ```
 
@@ -139,24 +168,43 @@ http://localhost:8080/outputs/v1.wav
 |------|------|------|------|
 | `version_id` | string | ✅ 必填 | 要修改的历史版本 ID |
 | `feedback` | string | ✅ 必填 | 用户反馈意见 |
+| `version_label` | string | 选填 | 版本描述，不填则自动生成 |
 
 **Response** `201 Created`
 
-与 `/api/generate` 结构相同，额外包含：
+与 `/api/generate` 响应结构相同，包含所有 Track 字段，额外增加回炉专属字段：
 
 ```json
 {
   "code": 201,
   "message": "created",
   "data": {
-    "version_id": "v2",
-    "caption": "...",
-    "midi_url": "/outputs/v2/v2.mid",
-    "audio_url": "/outputs/v2/v2.wav",
-    "plan": { "...": "..." },
+    "version_id": "v8",
+    "track_id": "a1b2c3d4-...",
+    "track_name": "毕业季的歌",
+    "version_number": 2,
+    "version_label": "回炉·更欢快，加吉他",
+    "parent_version_id": "v7",
+    "caption": "A brighter and more hopeful pop ballad...",
+    "midi_url": "/outputs/v8.mid",
+    "audio_url": "/outputs/v8.wav",
+    "plan": {
+      "theme": "graduation farewell",
+      "style": "pop ballad",
+      "mood": ["hopeful", "warm"],
+      "tempo": 88,
+      "key": "C major",
+      "instruments": ["piano", "strings", "acoustic guitar"],
+      "structure": ["intro", "verse", "chorus", "outro"]
+    },
     "mock": false,
-    "parent_version_id": "v1",
-    "change_reason": "根据用户反馈，调整了音乐参数..."
+    "change_reason": "根据用户反馈「更欢快一点，加吉他」，将 BPM 从 76 提升至 88，调式从 A minor 改为 C major，加入木吉他声部，整体氛围从忧郁转为温暖希望。",
+    "parameter_diff": {
+      "mood": { "from": ["nostalgic", "warm"], "to": ["hopeful", "warm"] },
+      "tempo": { "from": 76, "to": 88 },
+      "key": { "from": "A minor", "to": "C major" },
+      "instruments": { "add": ["acoustic guitar"], "remove": [] }
+    }
   }
 }
 ```
@@ -164,7 +212,20 @@ http://localhost:8080/outputs/v1.wav
 | 额外字段 | 类型 | 说明 |
 |----------|------|------|
 | `parent_version_id` | string | 父版本 ID |
-| `change_reason` | string | 智能体给出的修改原因 |
+| `change_reason` | string | AI 生成的中文修改解释 |
+| `parameter_diff` | object | 修改前后的参数差异对比 |
+
+`parameter_diff` 子字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `mood.from` / `mood.to` | string[] | 情绪变化 |
+| `tempo.from` / `tempo.to` | number | 速度 BPM 变化 |
+| `key.from` / `key.to` | string | 调式变化 |
+| `instruments.add` | string[] | 新增乐器 |
+| `instruments.remove` | string[] | 移除乐器 |
+
+> `change_reason` 由 AI 生成，非模板拼接。如果管线不可用，后端会自行对比新旧 plan 计算 `parameter_diff`。
 
 ---
 
@@ -286,7 +347,205 @@ GET /api/version/v1
 
 ---
 
-### 3.5 GET /api/health — 健康检查
+### 3.5 GET /api/tracks — 获取 Track 列表
+
+获取所有 Track（按最新版本分组），每个 Track 展示最新版本摘要。
+
+**Request**
+
+```
+GET /api/tracks
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "items": [
+      {
+        "track_id": "a1b2c3d4-e5f6...",
+        "track_name": "毕业季的歌",
+        "version_number": 3,
+        "created_at": "2026-07-13T14:00:00",
+        "updated_at": "2026-07-13T16:00:00",
+        "latest_version": {
+          "version_id": "v3",
+          "track_id": "a1b2c3d4...",
+          "track_name": "毕业季的歌",
+          "version_number": 3,
+          "version_label": "回炉·放慢，情绪改温暖",
+          "parent_version_id": "v2",
+          "user_prompt": "我想要一首毕业季的歌...",
+          "style": "pop ballad",
+          "mood": "warm",
+          "tempo": "slow",
+          "created_at": "2026-07-13T16:00:00",
+          "mock": false,
+          "midi_url": "/outputs/v3.mid",
+          "audio_url": "/outputs/v3.wav",
+          "caption_preview": "A warm nostalgic...",
+          "caption": "A warm nostalgic pop ballad...",
+          "plan": { "...": "..." }
+        }
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+> `version_number` 即最新版本号，近似等于总版本数。
+
+---
+
+### 3.6 GET /api/track/{track_id} — 获取 Track 版本历史
+
+获取指定 Track 下的所有版本（按版本号倒序）。
+
+**Request**
+
+```
+GET /api/track/a1b2c3d4-e5f6...
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "track_id": "a1b2c3d4...",
+    "track_name": "毕业季的歌",
+    "total_versions": 3,
+    "versions": [
+      {
+        "version_id": "v3",
+        "version_number": 3,
+        "version_label": "回炉·放慢，情绪改温暖",
+        "parent_version_id": "v2",
+        "user_prompt": "我想要一首毕业季的歌...",
+        "style": "pop ballad",
+        "mood": "warm",
+        "tempo": "slow",
+        "instruments": ["piano", "strings"],
+        "feedback": "放慢一点，情绪温暖一些",
+        "caption": "A warm nostalgic pop ballad...",
+        "midi_url": "/outputs/v3.mid",
+        "audio_url": "/outputs/v3.wav",
+        "change_reason": "根据用户反馈...",
+        "parameter_diff": {
+          "mood": { "from": ["hopeful", "warm"], "to": ["warm", "nostalgic"] },
+          "tempo": { "from": 88, "to": 72 }
+        },
+        "created_at": "2026-07-13T16:00:00",
+        "mock": false
+      }
+    ]
+  }
+}
+```
+
+> 每个 version 包含 `change_reason` 和 `parameter_diff`（首次版本为 null）。
+
+---
+
+### 3.7 文件上传接口
+
+#### POST /api/upload — 上传参考文件
+
+**Request** `multipart/form-data`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | file | ✅ | 文件 |
+| `version_id` | string | 选填 | 关联的版本 ID |
+| `track_id` | string | 选填 | 关联的 Track ID（用于生成前查找） |
+
+支持格式：`.txt` / `.docx` / `.xlsx` / `.musicxml` / `.xml` / `.mxl`。`.mxl` 自动解压（ZIP 包内含 XML）。最大 10MB。
+
+**Response** `201 Created`
+
+```json
+{
+  "code": 201,
+  "message": "created",
+  "data": {
+    "file_id": 1,
+    "original_name": "毕业季歌词.txt",
+    "file_type": "txt",
+    "extracted_text": "夏天的风吹过操场，我们即将各奔东西...",
+    "extracted_json": null,
+    "file_size": 256,
+    "version_id": "v1",
+    "track_id": "a1b2c3d4...",
+    "created_at": "2026-07-13T14:00:00"
+  }
+}
+```
+
+MusicXML 的响应还包含结构化数据：
+
+```json
+{
+  "file_id": 2,
+  "original_name": "theme.musicxml",
+  "file_type": "musicxml",
+  "extracted_text": "Key: D major, Time: 4/4, Tempo: 120 BPM, Notes: 156...",
+  "extracted_json": {
+    "key": "D major",
+    "time_signature": "4/4",
+    "tempo_bpm": 120,
+    "note_count": 156,
+    "range": "G3 ~ C6",
+    "melody_notes": ["D4", "F#4", "A4", "G4", "F#4", "E4", "D4"],
+    "chords": ["D major", "G major", "A7", "B minor"]
+  },
+  "file_size": 8192,
+  "version_id": "v1",
+  "track_id": "a1b2c3d4...",
+  "created_at": "2026-07-13T14:01:00"
+}
+```
+
+#### GET /api/uploads/version/{version_id} — 查看关联文件
+
+**Request**
+
+```
+GET /api/uploads/version/v1
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "items": [ { "file_id": 1, "...": "..." } ],
+    "total": 2,
+    "version_id": "v1"
+  }
+}
+```
+
+#### DELETE /api/uploads/{file_id} — 删除文件
+
+**Request**
+
+```
+DELETE /api/uploads/1
+```
+
+**Response** `200 OK`（文件不存在时返回 404）
+
+---
+
+### 3.8 GET /api/health — 健康检查
 
 **Response** `200 OK`
 
@@ -322,7 +581,7 @@ GET /api/version/v1
 
 ---
 
-### 3.6 GET /outputs/{filename} — 静态文件
+### 3.9 GET /outputs/{filename} — 静态文件
 
 直接访问 MIDI / WAV 文件。文件名格式：`{version_id}.mid` 或 `{version_id}.wav`
 
@@ -333,7 +592,7 @@ GET /outputs/v1.wav   → 下载 WAV 文件
 
 ---
 
-### 3.7 POST /api/compliance/check — 合规检测
+### 3.10 POST /api/compliance/check — 合规检测
 
 对指定版本进行版权合规检测，返回相似度评分和风险等级。
 
@@ -373,7 +632,7 @@ GET /outputs/v1.wav   → 下载 WAV 文件
 
 ---
 
-### 3.8 GET /api/compliance/history — 检测历史
+### 3.11 GET /api/compliance/history — 检测历史
 
 ```
 GET /api/compliance/history
@@ -406,7 +665,7 @@ GET /api/compliance/history
 
 ---
 
-### 3.9 POST /api/copyright/register — 版权存证
+### 3.12 POST /api/copyright/register — 版权存证
 
 提交版权存证申请，记录创作全流程。
 
@@ -446,7 +705,7 @@ GET /api/compliance/history
 
 ---
 
-### 3.10 GET /api/copyright/records — 存证记录列表
+### 3.13 GET /api/copyright/records — 存证记录列表
 
 ```
 GET /api/copyright/records
@@ -456,13 +715,44 @@ GET /api/copyright/records
 
 ---
 
-### 3.11 GET /api/copyright/record/{record_id} — 存证记录详情
+### 3.14 GET /api/copyright/record/{record_id} — 存证记录详情
 
 ```
 GET /api/copyright/record/cr-1783826523335
 ```
 
 返回单条版权存证记录的完整信息，结构与注册响应一致。
+
+---
+
+### 3.15 GET /api/copyright/evidence-package/{version_id} — 版权存证统一证据包
+
+给版权声明/存证系统使用。该接口按 `version_id` 聚合数据库版本记录和 `outputs` 目录下的真实文件，返回项目关联信息、版本链、AI 生成/修订记录、输出文件列表和 SHA-256 哈希。
+
+```http
+GET /api/copyright/evidence-package/v27?creator_name=张三&creator_id=user-001
+```
+
+可选查询参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `creator_name` | 创作者姓名 |
+| `creator_id` | 创作者 ID |
+| `external_project_id` | 对方存证系统中的项目 ID |
+| `project_title` | 项目/作品名称 |
+
+返回 `data` 主要字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `project` | 项目关联信息 |
+| `versions` | 从初始版本到当前版本的版本链 |
+| `records` | 每个版本的结构化 AI 证据记录 |
+| `generated_files` | WAV/MIDI/music_json/prompt/manifest/ai_record 等真实文件清单 |
+| `file_hashes_sha256` | 文件名到 SHA-256 的哈希映射 |
+| `logs` | 审计日志位置说明 |
+| `minimum_package_ready` | 是否满足最小对接材料 |
 
 ---
 
@@ -527,6 +817,8 @@ GET /api/copyright/record/cr-1783826523335
    }
    ```
 
-4. **create → list → detail 流程**：先 `POST /api/generate` 拿到 `version_id`，再 `GET /api/versions` 展示列表，点击具体版本时 `GET /api/version/{id}` 获取详情。
+4. **Track 分组流程**：首页建议用 `GET /api/tracks` 展示 Track 列表（而非 `/api/versions` 的扁平列表）。点击某 Track 后用 `GET /api/track/{id}` 获取版本历史。
 
-5. **修订流程**：`POST /api/revise` 传入已有 `version_id` + `feedback`，返回新的 `version_id`，前端展示新版本即可。
+5. **修订流程**：`POST /api/revise` 传入已有 `version_id` + `feedback`，响应会额外包含 `change_reason` 和 `parameter_diff`，前端应展示这两个字段。
+
+6. **文件上传流程**：`POST /api/upload` 上传文件（传 `track_id` 关联到 Track），之后调用 `POST /api/generate` 时后端会自动将文件内容注入 prompt。用 `GET /api/uploads/version/{version_id}` 查看某版本的关联文件。

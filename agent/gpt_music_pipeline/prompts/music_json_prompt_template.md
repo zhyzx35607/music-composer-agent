@@ -23,9 +23,9 @@ Output JSON only.
 ## Composition Requirements
 
 1. Generate pure instrumental music only.
-2. The target duration is {{DURATION_SECONDS}} seconds.
+2. The target duration is {{DURATION_SECONDS}} seconds. tempo_bpm is the beats per minute (BPM), not the duration; they are independent.
 3. If the user does not specify a style, choose a musically reasonable style.
-4. If the user does not specify tempo, choose a BPM that fits the requested mood.
+4. Use the tempo_bpm from UI_PARAMETERS_JSON as the target BPM unless the user request specifies a different BPM.
 5. If the user does not specify key, choose a common key.
 6. Use General MIDI compatible instruments.
 7. Use `start` and `duration` in beats, not seconds.
@@ -34,6 +34,30 @@ Output JSON only.
 10. Keep velocity between 1 and 127.
 11. Use channel 9 only for drums.
 12. Keep the result simple, stable, and easy to convert to MIDI.
+
+## Musical Structure Requirements
+
+Create a complete instrumental piece, not a short loop copied several times.
+
+Use a clear musical arc across the whole duration:
+
+1. Intro: introduce the mood with fewer notes or fewer instruments.
+2. Main theme: present a recognizable motif or melody.
+3. Development / build: vary the motif with changes in rhythm, register, velocity, harmony, or instrumentation.
+4. Climax / chorus: make the strongest section with higher energy, fuller arrangement, or stronger melodic contour.
+5. Outro: resolve the harmony and reduce energy naturally.
+
+For pieces longer than 45 seconds:
+
+- Divide the timeline into at least four connected sections such as intro, theme, build, climax, and outro.
+- Do not repeat the same 2-bar or 4-bar phrase unchanged more than twice.
+- Reuse motifs, but vary them. Acceptable variations include transposition, inversion-like contour changes, rhythmic displacement, octave changes, altered endings, added passing notes, drum fills, bass movement, and velocity changes.
+- Add or remove instruments across sections so the arrangement grows and relaxes.
+- Use transitions between sections. Avoid disconnected blocks.
+- Chord progression may repeat, but should include variation, extension, turnaround, or a different ending before the climax or outro.
+- Melody should have phrase endings and rests. Do not fill every beat with identical note patterns.
+
+For 60 to 120 second requests, prioritize musical development over dense note count. A simpler piece with clear sections is better than a long repeated loop.
 
 ## Required Output Format
 
