@@ -16,17 +16,32 @@ export interface GenerateRequest {
   mood?: string
   tempo?: string
   instruments?: string[]
+  reference_file_ids?: number[]
 }
 
 // 修订请求类型
 export interface ReviseRequest {
   version_id: string
   feedback: string
+  reference_file_ids?: number[]
+}
+
+export interface UploadedReferenceFile {
+  file_id: number
+  original_name: string
+  file_type: string
+  extracted_text?: string
+  extracted_json?: string
+  file_size: number
+  version_id?: string | null
+  track_id?: string | null
+  created_at: string
 }
 
 // 生成响应类型
 export interface GenerateResponse {
   version_id: string
+  track_id?: string
   caption: string
   midi_url: string
   audio_url: string
@@ -37,6 +52,7 @@ export interface GenerateResponse {
 // 历史版本摘要
 export interface HistoryItem {
   version_id: string
+  track_id?: string
   parent_version_id: string | null
   user_prompt: string
   style: string
@@ -51,6 +67,7 @@ export interface HistoryItem {
   midi_url?: string
   audio_url?: string
   plan?: CompositionPlan
+  mock?: boolean
 }
 
 // API 统一响应类型

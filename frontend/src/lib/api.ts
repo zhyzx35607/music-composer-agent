@@ -1,11 +1,11 @@
 import axios from 'axios';
-import type { GenerateRequest, GenerateResponse, ReviseRequest, HistoryItem, ComplianceCheckRequest, ComplianceCheckResult, ComplianceHistoryItem, CopyrightRegisterRequest, CopyrightRecord } from '../types/api';
+import type { GenerateRequest, GenerateResponse, ReviseRequest, HistoryItem, ComplianceCheckRequest, ComplianceCheckResult, ComplianceHistoryItem, CopyrightRegisterRequest, CopyrightRecord, UploadedReferenceFile } from '../types/api';
 import { ENV } from './env';
 
 // 创建 axios 实例
 const apiClient = axios.create({
   baseURL: ENV.API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -61,7 +61,7 @@ export const api = {
    * 首次生成音乐
    */
   generate: async (payload: GenerateRequest): Promise<GenerateResponse> => {
-    const response = await apiClient.post<GenerateResponse>('/api/generate', payload);
+    const response = await apiClient.post<unknown, GenerateResponse>('/api/generate', payload);
     return response;
   },
 
@@ -69,8 +69,22 @@ export const api = {
    * 反馈修改
    */
   revise: async (payload: ReviseRequest): Promise<GenerateResponse> => {
-    const response = await apiClient.post<GenerateResponse>('/api/revise', payload);
+    const response = await apiClient.post<unknown, GenerateResponse>('/api/revise', payload);
     return response;
+  },
+
+  /**
+   * 上传 MusicXML/MXL/XML 等参考乐谱文件
+   */
+  uploadReferenceFile: async (file: File, params?: { versionId?: string; trackId?: string }): Promise<UploadedReferenceFile> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (params?.versionId) formData.append('version_id', params.versionId);
+    if (params?.trackId) formData.append('track_id', params.trackId);
+    const response = await axios.post(`${ENV.API_BASE_URL}/api/upload`, formData, {
+      timeout: 300000,
+    });
+    return response.data?.data ?? response.data;
   },
 
   /**
@@ -83,7 +97,7 @@ export const api = {
     page: number;
     size: number;
   }> => {
-    const response = await apiClient.get<{ items: HistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/versions', { params: { page, size } });
+    const response = await apiClient.get<unknown, { items: HistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/versions', { params: { page, size } });
     return response;
   },
 
@@ -91,7 +105,7 @@ export const api = {
    * 获取单个版本详情
    */
   getVersion: async (versionId: string): Promise<HistoryItem> => {
-    const response = await apiClient.get<HistoryItem>(`/api/version/${versionId}`);
+    const response = await apiClient.get<unknown, HistoryItem>(`/api/version/${versionId}`);
     return response;
   },
 
@@ -104,7 +118,7 @@ export const api = {
     totalVersions: number;
     healthy: boolean;
   }> => {
-    const response = await apiClient.get<{ service: string; database: string; totalVersions: number; healthy: boolean }>('/api/health');
+    const response = await apiClient.get<unknown, { service: string; database: string; totalVersions: number; healthy: boolean }>('/api/health');
     return response;
   },
 
@@ -112,7 +126,7 @@ export const api = {
    * 合规检测 — 检测 AI 生成音乐是否侵权已有版权
    */
   checkCompliance: async (payload: ComplianceCheckRequest): Promise<ComplianceCheckResult> => {
-    const response = await apiClient.post<ComplianceCheckResult>('/api/compliance/check', payload);
+    const response = await apiClient.post<unknown, ComplianceCheckResult>('/api/compliance/check', payload);
     return response;
   },
 
@@ -120,7 +134,7 @@ export const api = {
    * 获取合规检测历史
    */
   getComplianceHistory: async (): Promise<ComplianceHistoryItem[]> => {
-    const response = await apiClient.get<{ items: ComplianceHistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/compliance/history');
+    const response = await apiClient.get<unknown, { items: ComplianceHistoryItem[]; total: number; totalPages: number; page: number; size: number }>('/api/compliance/history');
     return response.items;
   },
 
@@ -128,7 +142,7 @@ export const api = {
    * 版权存证 — 提交版权登记申请
    */
   registerCopyright: async (payload: CopyrightRegisterRequest): Promise<CopyrightRecord> => {
-    const response = await apiClient.post<CopyrightRecord>('/api/copyright/register', payload);
+    const response = await apiClient.post<unknown, CopyrightRecord>('/api/copyright/register', payload);
     return response;
   },
 
@@ -136,7 +150,7 @@ export const api = {
    * 获取版权存证记录列表
    */
   getCopyrightRecords: async (): Promise<CopyrightRecord[]> => {
-    const response = await apiClient.get<{ items: CopyrightRecord[]; total: number; totalPages: number; page: number; size: number }>('/api/copyright/records');
+    const response = await apiClient.get<unknown, { items: CopyrightRecord[]; total: number; totalPages: number; page: number; size: number }>('/api/copyright/records');
     return response.items;
   },
 
@@ -144,7 +158,7 @@ export const api = {
    * 获取单条版权存证记录详情
    */
   getCopyrightRecord: async (recordId: string): Promise<CopyrightRecord> => {
-    const response = await apiClient.get<CopyrightRecord>(`/api/copyright/record/${recordId}`);
+    const response = await apiClient.get<unknown, CopyrightRecord>(`/api/copyright/record/${recordId}`);
     return response;
   },
 };

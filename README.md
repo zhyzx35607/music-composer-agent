@@ -1,118 +1,126 @@
-# 音乐创作智能体平台
+# 音乐创作智能体平台（二型甲）
 
-用户输入中文需求 → AI 自动生成作曲方案、MIDI 和 WAV 音频。
+这是可运行提交版，只保留程序源码、FluidSynth 运行文件和必要说明，不包含个人报告、数据库、生成音频、缓存、API Key、`node_modules` 或编译目录。
 
-```
-用户 ──▶ 前端 (React :3000) ──▶ 后端 (Spring :8080) ──▶ 智能体管线 (Python)
-                                                              │
-                                                    GPT API → music_json
-                                                              │
-                                                         校验 + MIDI + WAV
-                                                              │
-                                              /outputs/v1.wav ◀── 前端播放
-```
+## 1. 功能
 
-## 项目结构
+- 自然语言生成纯音乐：GPT -> `music_json` -> MIDI -> WAV。
+- 上传 MusicXML、MXL、XML、MIDI 作为乐谱输入。
+- “保持原曲、转 WAV、变快、变慢”走确定性转换，不让 GPT 重写原曲。
+- 复杂改编和反馈修改使用结构化 `revision_plan`。
+- 保存父子版本、Prompt、AI 记录、manifest 和 SHA-256 证据。
+- 提供合规检测与版权存证联调接口。
 
-```
-music-composer-agent/
-│
-├── frontend/                        # React 19 + TypeScript + Tailwind CSS
-│   ├── src/
-│   │   ├── components/              # 组件（播放器、参数选择、下载…）
-│   │   ├── pages/                   # 创作 / 历史 / 合规检测 / 版权存证
-│   │   ├── hooks/                   # useMusicGeneration / useHistorySelector
-│   │   ├── lib/                     # API 层、错误处理、Mock 降级
-│   │   └── types/                   # TypeScript 类型
-│   └── vite.config.ts               # 代理 /api、/outputs → :8080
-│
-├── backend/                         # Java 22 + Spring Boot 3.3 + SQLite
-│   ├── src/main/java/com/musicplatform/
-│   │   ├── controller/              # 10 个 REST 接口
-│   │   ├── service/MusicService     # 调用 Python 管线 / Mock 降级
-│   │   ├── model/                   # JPA 实体
-│   │   └── dto/                     # 请求 / 响应 DTO
-│   └── API.md                       # 完整接口文档
-│
-├── agent/                           # AI 智能体管线（Python）
-│   └── gpt_music_pipeline/
-│       ├── run_music_pipeline.py    # 总控入口（一键 GPT → WAV）
-│       ├── gpt_music_client.py      # OpenAI 兼容 API 客户端
-│       ├── prompt_builder.py        # 中文需求 → GPT prompt
-│       ├── validate_music_json.py   # JSON Schema 校验
-│       ├── music_json_to_midi.py    # JSON → MIDI
-│       ├── render_wav.py            # MIDI → WAV（FluidSynth）
-│       ├── schemas/                 # music_json 标准格式
-│       └── outputs/                 # 产物：.json / .mid / .wav
-│
-└── README.md
+## 2. 运行环境
+
+- Windows 10/11
+- Java 22
+- Node.js 20 或更高版本
+- Python 3.10 或更高版本
+- PowerShell 5.1 或更高版本
+- 可用的 OpenAI-compatible Chat Completions API
+
+Maven Wrapper 和 Windows x64 FluidSynth 已包含在仓库中。
+
+## 3. SoundFont
+
+GitHub 普通文件上限为 100 MB，项目原用的 `FluidR3_GM.sf2` 为 141.5 MB，因此本提交不包含该文件。
+
+运行前请准备任意 General MIDI 兼容 `.sf2`，推荐将其放到：
+
+```text
+agent/soundfonts/FluidR3_GM.sf2
 ```
 
-## 技术栈
+也可以在启动时指定其他路径：
 
-| 层 | 技术 |
-|----|------|
-| 前端 | React 19 · TypeScript 6.0 · Vite 8 · Tailwind CSS 4 · Axios |
-| 后端 | Java 22 · Spring Boot 3.3 · JPA · SQLite · Swagger |
-| 智能体 | Python · GPT API · music_json Schema · MIDI · FluidSynth |
-
-## 工作流程
-
-```
-1. 用户输入中文需求 + 选择风格 / 情绪 / 速度 / 乐器
-2. 前端 POST /api/generate
-3. 后端调用 agent/gpt_music_pipeline/run_music_pipeline.py
-4. 管线：prompt 优化 → GPT API → music_json → 校验 → MIDI → WAV
-5. 后端解析 manifest JSON，存入 SQLite，返回 plan + caption + 文件 URL
-6. 前端展示作曲方案、播放 /outputs/v1.wav、支持 MIDI/WAV 下载
+```powershell
+.\start.ps1 -SoundFontPath 'D:\SoundFonts\your-soundfont.sf2'
 ```
 
-> **Mock 降级**：当 Python 或 API Key 不可用时，后端自动切换 Mock 模式，返回示例数据保证前后端链路可用。
+详见 [agent/soundfonts/README.md](agent/soundfonts/README.md)。
 
-## 快速启动
+## 4. 首次安装
 
-**前端**
+在项目根目录打开 PowerShell：
 
-```bash
-cd frontend
-npm install
-npm run dev          # http://localhost:3000
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\setup.ps1
 ```
 
-**后端**
+脚本会：
 
-```bash
+1. 检查 Java、Node.js、npm 和 Python。
+2. 创建根目录 `.venv`。
+3. 安装 Python 依赖。
+4. 执行 `npm ci` 安装前端依赖。
+5. 检查 FluidSynth 和 SoundFont。
+
+## 5. 配置 API
+
+不要把真实 Key 写进代码或提交到 Git。
+
+```powershell
+$env:MUSIC_API_KEY='你的 API Key'
+$env:MUSIC_API_BASE_URL='https://api.openai.com/v1'
+$env:MUSIC_MODEL='服务商实际支持的模型名'
+```
+
+第三方 OpenAI-compatible 服务通常也要求 Base URL 以 `/v1` 结尾。
+
+## 6. 一键启动
+
+```powershell
+.\start.ps1
+```
+
+脚本会打开两个终端窗口：
+
+- 后端：`http://localhost:8080`
+- 前端：`http://localhost:3000`
+- 健康检查：`http://localhost:8080/api/health`
+- Swagger：`http://localhost:8080/swagger-ui.html`
+
+若不希望打开两个新窗口，可分别运行：
+
+```powershell
+.\start-backend.ps1
+.\start-frontend.ps1
+```
+
+## 7. 验证
+
+```powershell
+.\verify.ps1
+```
+
+验证内容包括 Python 单元测试、Spring Boot 编译和前端生产构建。SoundFont 缺失只会给出提示，不影响源码编译，但实际 MIDI 转 WAV 时必须提供。
+
+## 8. 输出位置
+
+程序运行后统一输出到：
+
+```text
+agent/gpt_music_pipeline/outputs/
+```
+
+该目录中的 JSON、MIDI、WAV、Prompt、AI 记录和上传文件均被 Git 忽略。
+
+## 9. 手动启动后端
+
+```powershell
 cd backend
-set JAVA_HOME=D:\Program Files\Java\jdk-22
-set MUSIC_API_KEY=你的key
-set MUSIC_API_BASE_URL=你的API地址
-mvn spring-boot:run  # http://localhost:8080
+$env:MUSIC_PLATFORM_PIPELINE_PYTHON=(Resolve-Path '..\.venv\Scripts\python.exe').Path
+$env:MUSIC_PLATFORM_PIPELINE_SOUNDFONT_PATH=(Resolve-Path '..\agent\soundfonts\FluidR3_GM.sf2').Path
+.\mvnw.cmd spring-boot:run
 ```
 
-> 不设置 API Key 也可启动，后端自动降级为 Mock 模式。
+Spring Boot 启动后停在日志界面是正常现象，不要关闭该终端。
 
-## API 接口
+## 10. 注意事项
 
-| # | 方法 | 路径 | 说明 |
-|---|------|------|------|
-| 1 | `POST` | `/api/generate` | 首次生成音乐 |
-| 2 | `POST` | `/api/revise` | 反馈修改 |
-| 3 | `GET` | `/api/versions` | 版本列表（分页） |
-| 4 | `GET` | `/api/version/{id}` | 版本详情 |
-| 5 | `GET` | `/api/health` | 健康检查 |
-| 6 | `POST` | `/api/compliance/check` | 合规检测 |
-| 7 | `GET` | `/api/compliance/history` | 检测历史 |
-| 8 | `POST` | `/api/copyright/register` | 版权存证 |
-| 9 | `GET` | `/api/copyright/records` | 存证记录列表 |
-| 10 | `GET` | `/api/copyright/record/{id}` | 存证记录详情 |
+- 后端进入 `mock=true` 并生成 5 秒占位音频，表示完整管线执行失败，不是 GPT 只生成了 5 秒。
+- 合规检测和版权登记当前是联调/Mock 实现，不代表已接入真实版权库或真实区块链。
+- 上传 MXL 的兼容性不如 MusicXML 和 MIDI，演示优先使用 `.musicxml`、`.xml`、`.mid`。
 
-> 详见 [API 接口文档](backend/API.md) 和 Swagger UI (`/swagger-ui.html`)。
-
-## 开发状态
-
-- ✅ 前端 11 个功能页面 & 组件
-- ✅ 后端 10 个 API · JPA · 校验 · 异常处理
-- ✅ 前后端全字段对齐、编译通过
-- ✅ 智能体管线集成（GPT → JSON → MIDI → WAV）
-- ✅ 管线不可用时自动 Mock 降级
-- ✅ 完整链路联调（10 个接口实测通过，Mock 降级可用）

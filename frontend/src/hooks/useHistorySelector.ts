@@ -15,7 +15,8 @@ export function useHistorySelector() {
         caption: v.caption,
         midi_url: v.midi_url,
         audio_url: v.audio_url,
-        plan: v.plan
+        plan: v.plan,
+        mock: v.mock
       })
     }
   }
@@ -27,7 +28,8 @@ export function useHistorySelector() {
         caption: v.caption,
         midi_url: v.midi_url,
         audio_url: v.audio_url,
-        plan: v.plan
+        plan: v.plan,
+        mock: v.mock
       }
     }
     return null

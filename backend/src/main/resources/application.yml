@@ -27,6 +27,12 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  # 文件上传大小限制
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
 # SpringDoc OpenAPI 配置
 springdoc:
   api-docs:
@@ -43,11 +49,17 @@ music-platform:
   pipeline:
     python: C:/Python314/python.exe
     script-dir: ../agent/gpt_music_pipeline
-    model: gpt-5.5
+    model: ${MUSIC_MODEL:gpt-5.5}
     timeout: 240
     fluidsynth-path:
     soundfont-path:
     # API Key & Base URL — 请通过环境变量或 .env 文件设置，不要在此提交真实凭据
     # 环境变量: MUSIC_API_KEY / MUSIC_API_BASE_URL
-    api-key: sk-1f346f483c1de9d76578c42fd63504e2562fda9292586919464fbcea37cc62fa
-    api-base-url: http://172.93.218.157:8080/v1
+    api-key: ${MUSIC_API_KEY:}
+    api-base-url: ${MUSIC_API_BASE_URL:http://172.93.218.157:8080/v1}
+
+  # 文件上传配置
+  upload:
+    max-size: 10485760  # 10MB
+    allowed-extensions: txt,docx,xlsx,musicxml,xml,mxl,mid,midi
+    upload-dir: ../agent/gpt_music_pipeline/outputs/uploads

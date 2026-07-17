@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAPI } from '../lib/apiContext'
-import { History } from 'lucide-react'
-import type { HistoryItem } from '../types/api'
+import { FileMusic, History, Upload, X } from 'lucide-react'
+import { api } from '../lib/api'
+import type { HistoryItem, UploadedReferenceFile } from '../types/api'
 import { useToast } from '../components/useToast'
 import RequirementInput from '../components/RequirementInput'
 import ParameterSelectors from '../components/ParameterSelectors'
@@ -15,11 +16,82 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { useHistorySelector } from '../hooks/useHistorySelector'
 
 // 反馈区域
-function FeedbackSection({ onRevise, disabled }: { onRevise: (feedback: string) => void, disabled: boolean }) {
+function FeedbackSection({
+  onRevise,
+  disabled,
+  files,
+  onUpload,
+  onRemove,
+}: {
+  onRevise: (feedback: string) => void
+  disabled: boolean
+  files: UploadedReferenceFile[]
+  onUpload: (file: File) => void
+  onRemove: (fileId: number) => void
+}) {
   return (
-    <div className="bg-muted/30 rounded-2xl p-6 border border-border">
+    <div className="bg-muted/30 rounded-2xl p-6 border border-border space-y-5">
       <h3 className="text-sm font-semibold text-foreground mb-4">反馈修改</h3>
+      <ScoreUploadSection
+        files={files}
+        onUpload={onUpload}
+        onRemove={onRemove}
+        disabled={disabled}
+      />
       <FeedbackInput onSubmit={onRevise} disabled={disabled} />
+    </div>
+  )
+}
+
+function ScoreUploadSection({
+  files,
+  onUpload,
+  onRemove,
+  disabled,
+}: {
+  files: UploadedReferenceFile[]
+  onUpload: (file: File) => void
+  onRemove: (fileId: number) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <FileMusic className="h-5 w-5 text-primary" />
+        <span>乐谱文件</span>
+      </label>
+      <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-5 text-sm text-muted-foreground transition-colors hover:bg-muted/50">
+        <Upload className="h-5 w-5" />
+        <span>上传 .musicxml / .mxl / .xml / .mid</span>
+        <input
+          type="file"
+          accept=".musicxml,.mxl,.xml,.mid,.midi"
+          className="hidden"
+          disabled={disabled}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) onUpload(file)
+            event.currentTarget.value = ''
+          }}
+        />
+      </label>
+      {files.length > 0 && (
+        <div className="space-y-2">
+          {files.map(file => (
+            <div key={file.file_id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+              <span className="truncate">{file.original_name}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(file.file_id)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="移除乐谱"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -95,6 +167,7 @@ export default function CreatePage() {
   const [tempo, setTempo] = useState('')
   const [instruments, setInstruments] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [referenceFiles, setReferenceFiles] = useState<UploadedReferenceFile[]>([])
 
   const { success, error: addError } = useToast()
   const { isLoading, currentVersion, history, generate, revise, error } = useAPI()
@@ -108,12 +181,19 @@ export default function CreatePage() {
   }, [error, addError])
 
   const handleGenerate = async () => {
-    if (!userPrompt.trim()) {
-      addError('请输入你的音乐创意')
+    if (!userPrompt.trim() && referenceFiles.length === 0) {
+      addError('请输入音乐创意，或先上传 MusicXML 乐谱')
       return
     }
     try {
-      const result = await generate({ user_prompt: userPrompt, style, mood, tempo, instruments })
+      const result = await generate({
+        user_prompt: userPrompt.trim() || '根据上传的 MusicXML 乐谱生成一段纯音乐',
+        style,
+        mood,
+        tempo,
+        instruments,
+        referenceFileIds: referenceFiles.map(file => file.file_id),
+      })
       if (result) success('音乐生成成功！')
     } catch {
       // Error is already handled by useAPI hook
@@ -130,11 +210,32 @@ export default function CreatePage() {
       return
     }
     try {
-      const result = await revise(currentVersion.version_id, feedback)
+      const result = await revise(
+        currentVersion.version_id,
+        feedback,
+        referenceFiles.map(file => file.file_id),
+      )
       if (result) success('修改版本生成成功！')
     } catch {
       // Error is already handled by useAPI hook
     }
+  }
+
+  const handleScoreUpload = async (file: File) => {
+    try {
+      const uploaded = await api.uploadReferenceFile(file, {
+        versionId: currentVersion?.version_id,
+        trackId: currentVersion?.track_id,
+      })
+      setReferenceFiles(prev => [...prev, uploaded])
+      success('乐谱上传成功')
+    } catch {
+      addError('乐谱上传失败，请检查文件格式')
+    }
+  }
+
+  const handleRemoveReferenceFile = (fileId: number) => {
+    setReferenceFiles(prev => prev.filter(file => file.file_id !== fileId))
   }
 
   const handleHistorySelectComplete = (v: HistoryItem) => {
@@ -165,7 +266,13 @@ export default function CreatePage() {
           style={style} setStyle={setStyle} mood={mood} setMood={setMood}
           tempo={tempo} setTempo={setTempo} instruments={instruments} setInstruments={setInstruments}
         />
-        <GenerateButton onClick={handleGenerate} disabled={isLoading || !userPrompt.trim()} isLoading={isLoading} />
+        <ScoreUploadSection
+          files={referenceFiles}
+          onUpload={handleScoreUpload}
+          onRemove={handleRemoveReferenceFile}
+          disabled={isLoading}
+        />
+        <GenerateButton onClick={handleGenerate} disabled={isLoading || (!userPrompt.trim() && referenceFiles.length === 0)} isLoading={isLoading} />
       </div>
 
       {/* 加载中 */}
@@ -182,7 +289,13 @@ export default function CreatePage() {
           <div className="flex justify-center">
             <DownloadButtons midiUrl={currentVersion.midi_url} audioUrl={currentVersion.audio_url} mock={currentVersion.mock} />
           </div>
-          <FeedbackSection onRevise={handleRevise} disabled={isLoading} />
+          <FeedbackSection
+            onRevise={handleRevise}
+            disabled={isLoading}
+            files={referenceFiles}
+            onUpload={handleScoreUpload}
+            onRemove={handleRemoveReferenceFile}
+          />
         </div>
       )}
 
